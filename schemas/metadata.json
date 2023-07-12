@@ -1,0 +1,26 @@
+[
+    {
+        "name": "subscription_name",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Name of a subscription"
+    },
+    {
+        "name": "message_id",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "ID of a message"
+    },
+    {
+        "name": "publish_time",
+        "type": "TIMESTAMP",
+        "mode": "NULLABLE",
+        "description": "The time of publishing a message"
+    },
+    {
+        "name": "attributes",
+        "type": "JSON",
+        "mode": "NULLABLE",
+        "description": "A JSON object containing all message attributes. It also contains additional fields that are part of the Pub/Sub message including the ordering key, if present."
+    }
+]
