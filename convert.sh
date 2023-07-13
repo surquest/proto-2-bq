@@ -94,14 +94,12 @@ if [ "$metadata" != false ]; then
     metadata_src='/tmp/default/metadata.json'
     
     # Read the existing metadata JSON array from the file
-    metadata_arr=$(jq '.[]' $metadata_src)
+    metadata_json=$(cat $metadata_src)
+    schema_json=$(cat $base_path/out/$table_name.schema)
 
-    # Read the existing JSON array from the file
-    json_array=$(jq '.[]' $base_path/out/$table_name.schema)
+    echo -e "$schema_json\n$metadata_json" | jq -s 'flatten(1)' \
+      > $base_path/out/$table_name.schema 
 
-    # Combine the two JSONs arrays into one array and write it back to the file
-    output_array=$(echo "$json_array $metadata_arr" | jq '.')
-    echo -e "[\n$output_array\n]" > $base_path/out/$table_name.schema 
 fi
 
 # print success and path the to the generated file
