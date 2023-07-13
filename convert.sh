@@ -66,7 +66,7 @@ file_path="$base_path/$proto"
 
 # Check if the file exists
 if [ ! -f "$file_path" ]; then
-    echo "Error: File not found."
+    echo "Error: No file found at $file_path"
     exit 1
 fi
 
