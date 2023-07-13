@@ -3,28 +3,66 @@
 # Define the base path
 base_path="/tmp/schemas"
 
-# Get the relative file path from the first parameter
-relative_path="$1"
+# Define default values for arguments
+proto=""
+metadata=false
 
-# Check if the second parameter (add message metadata) is provided (if not set to false)
-if [ -z "$2" ]; then
-    add_message_metadata=false
-else
-    add_message_metadata="$2"
+# Define function to print help
+function print_help {
+  echo "Usage: $0 --proto <path_to_proto> [--metadata <true/false>] [--help]"
+  echo "  --proto <path_to_proto>   Path to the proto message specification"
+  echo "  --metadata <true/false>   Add PubSub metadata columns (default: false)"
+  echo "  --help                    Print this help message"
+}
+
+# Get arguments from the command line
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --proto)
+        proto="$2"
+        shift 2
+        ;;
+        --metadata)
+        metadata="$2"
+        shift 2
+        ;;
+        --help)
+        print_help
+        exit 0
+        ;;
+        *)
+        echo "Unknown option: $1"
+        print_help
+        exit 1
+        ;;
+    esac
+done
+
+# Check if proto argument is provided
+if [ -z "$proto" ]; then
+  echo "Error: --proto argument is required"
+  print_help
+  exit 1
 fi
 
+# Check if metadata argument is true or false
+if [ "$metadata" != "true" ] && [ "$metadata" != "false" ]; then
+  echo "Error: --metadata argument must be true or false"
+  print_help
+  exit 1
+fi
 
 # Get table name as string from the first parameter before the dot
-table_name=$(echo "$1" | cut -d "." -f 1)
+table_name=$(echo "$proto" | cut -d "." -f 1)
 
 # Check if the first parameter is provided
-if [ -z "$1" ]; then
+if [ -z "$proto" ]; then
     echo "Error: No file path provided."
     exit 1
 fi
 
 # Combine base path and the passed first parameter
-file_path="$base_path/$1"
+file_path="$base_path/$proto"
 
 # Check if the file exists
 if [ ! -f "$file_path" ]; then
@@ -33,7 +71,7 @@ if [ ! -f "$file_path" ]; then
 fi
 
 # Create a copy of the file with the combined path
-copied_file_path="${base_path}/copy.$1"
+copied_file_path="${base_path}/copy.$proto"
 cp "$file_path" "$copied_file_path"
 
 # Substitute the first line of the copied file with the specified content
@@ -50,44 +88,20 @@ protoc --bq-schema_out=$base_path --proto_path=/tmp/default --proto_path=$base_p
 # Remove the copied file
 rm $copied_file_path
 
-# Check if the second parameter is set to true
-if [ "$add_message_metadata" = true ]; then
+# Check if the second parameter is not false
+if [ "$metadata" != false ]; then
     # Define the new JSON array with Pub/Sub message metadata
-    metadata='[
-        {
-            "name": "subscription_name",
-            "type": "STRING",
-            "mode": "NULLABLE",
-            "description": "Name of a subscription"
-        },
-        {
-            "name": "message_id",
-            "type": "STRING",
-            "mode": "NULLABLE",
-            "description": "ID of a message"
-        },
-        {
-            "name": "publish_time",
-            "type": "TIMESTAMP",
-            "mode": "NULLABLE",
-            "description": "The time of publishing a message"
-        },
-        {
-            "name": "attributes",
-            "type": "JSON",
-            "mode": "NULLABLE",
-            "description": "A JSON object containing all message attributes. It also contains additional fields that are part of the Pub/Sub message including the ordering key, if present."
-        }
-    ]'
+    metadata_src='/tmp/default/metadata.json'
+    
+    # Read the existing metadata JSON array from the file
+    metadata_arr=$(jq '.[]' $metadata_src)
 
     # Read the existing JSON array from the file
     json_array=$(jq '.[]' $base_path/out/$table_name.schema)
 
-    # Append the new JSON array to the existing array
-    json_array=$(echo "$json_array" | jq --argjson metadata "$metadata" '. + $metadata')
-
-    # Write the updated JSON array back to the file
-    echo "$json_array" | jq '.' > $base_path/out/$table_name.schema
+    # Combine the two JSONs arrays into one array and write it back to the file
+    output_array=$(echo "$json_array $metadata_arr" | jq '.')
+    echo -e "[\n$output_array\n]" > $base_path/out/$table_name.schema 
 fi
 
 # print success and path the to the generated file
